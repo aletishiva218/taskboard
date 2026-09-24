@@ -1,0 +1,109 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: taskboard-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-taskboard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-be6e105690ce4399ade5bb25697e1c33}
+      POSTGRES_DB: ${POSTGRES_DB:-taskboard}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-taskboard} -d ${POSTGRES_DB:-taskboard}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: taskboard-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-856a10f3c0e64b578a8242756ef9e20e}
+    volumes:
+      - redis_data:/data
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-856a10f3c0e64b578a8242756ef9e20e}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taskboard-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 5000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-taskboard}:${POSTGRES_PASSWORD:-be6e105690ce4399ade5bb25697e1c33}@postgres:5432/${POSTGRES_DB:-taskboard}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-856a10f3c0e64b578a8242756ef9e20e}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:-77d5946a731f4d5bb8c4dc947b47c674}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-f3aef42b52464c97b8753543379c72d6}
+      SESSION_SECRET: ${SESSION_SECRET:-0652b980c1d14c95a20a25d014446066}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-519622512207-oh1arinjgpokupt26jigetud722mdo8c.apps.googleusercontent.com}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-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}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:5000/api/auth/google/callback}
+      SMTP_HOST: ${SMTP_HOST:-smtp.mailtrap.io}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-TaskBoard <aletishiva218@gmail.com>}
+      UNSUBSCRIBE_SECRET: ${UNSUBSCRIBE_SECRET:-37d5ede897af47d0b4d36e923cfa6d1b}
+      ADMIN_SECRET: ${ADMIN_SECRET:-8419d80b1dcd46bdac5fe4a7f2d6f35a}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
+    ports:
+      - '5000:5000'
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fs http://localhost:5000/health | grep -q "healthy" || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: taskboard-frontend
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
+      NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:5000}
+    ports:
+      - '3000:3000'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fso /dev/null http://localhost:3000 || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local

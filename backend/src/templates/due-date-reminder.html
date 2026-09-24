@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Due Date Reminder</title></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <tr><td style="background:#f59e0b;padding:32px 40px;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:24px;font-weight:700;">TaskBoard</h1>
+        </td></tr>
+        <tr><td style="padding:40px;">
+          <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">⏰ Card due tomorrow</h2>
+          <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 8px;">Hi {{name}},</p>
+          <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 24px;">
+            Your card <strong>"{{cardName}}"</strong> is due on <strong>{{dueDate}}</strong>. Don't forget to complete it!
+          </p>
+          <div style="text-align:center;margin:32px 0;">
+            <a href="{{cardUrl}}" style="background:#f59e0b;color:#fff;text-decoration:none;padding:14px 32px;border-radius:6px;font-size:15px;font-weight:600;display:inline-block;">View Card</a>
+          </div>
+        </td></tr>
+        <tr><td style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;text-align:center;">
+          <p style="color:#9ca3af;font-size:12px;margin:0;">© 2026 TaskBoard · <a href="{{unsubscribeUrl}}" style="color:#9ca3af;">Unsubscribe</a></p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

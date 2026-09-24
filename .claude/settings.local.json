@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose ps *)",
+      "Bash(docker exec *)",
+      "Bash(npx tsc *)",
+      "Bash(docker-compose restart *)",
+      "Bash(powershell -Command \"Get-ChildItem -Recurse -Force | Select-Object FullName\")"
+    ]
+  }
+}
