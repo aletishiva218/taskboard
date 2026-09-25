@@ -80,6 +80,7 @@ const processEmail = async (type, data, attempt = 1) => {
 const addEmailJob = (type, data) => {
   logger.info('Email job queued', { type, userId: data.userId });
   setImmediate(() => processEmail(type, data));
+  return Promise.resolve();
 };
 
 module.exports = { addEmailJob };
