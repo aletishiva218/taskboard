@@ -144,7 +144,18 @@ const createBoard = async (req, res, next) => {
 
     logger.info('Board created', { boardId: board.id, userId: req.user.id });
 
-    res.status(201).json({ success: true, message: 'Board created', data: { board } });
+    res.status(201).json({
+      success: true,
+      message: 'Board created',
+      data: {
+        board: {
+          ...board,
+          role: 'owner',
+          member_count: 1,
+          is_favourite: false,
+        },
+      },
+    });
   } catch (err) {
     next(err);
   }
