@@ -2,9 +2,12 @@ const Bull = require('bull');
 const emailService = require('../services/emailService');
 const { query } = require('../config/db');
 const logger = require('../utils/logger');
+const { createRedisClient } = require('../config/redis');
 
+// Use createClient so Bull inherits our ioredis options (TLS, enableReadyCheck: false).
+// Passing redis: REDIS_URL directly would bypass those settings and fail with Upstash.
 const emailQueue = new Bull('email', {
-  redis: process.env.REDIS_URL,
+  createClient: () => createRedisClient(),
   defaultJobOptions: {
     attempts: 3,
     backoff: {

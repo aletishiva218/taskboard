@@ -2,15 +2,17 @@ const Redis = require('ioredis');
 const logger = require('../utils/logger');
 
 const createRedisClient = (options = {}) => {
-  // Upstash uses rediss:// (TLS). ioredis enables TLS automatically for rediss://
-  // but needs rejectUnauthorized: false for Upstash's certificate chain.
+  // Upstash uses rediss:// (TLS). ioredis enables TLS for rediss:// automatically,
+  // but rejectUnauthorized must be false for Upstash's certificate chain.
+  // enableReadyCheck must be false — Upstash's serverless model doesn't support it.
+  // maxRetriesPerRequest: null lets Bull's blocking commands run without per-request retry limits.
   const isTLS = process.env.REDIS_URL?.startsWith('rediss://');
   const client = new Redis(process.env.REDIS_URL, {
-    maxRetriesPerRequest: 3,
-    enableReadyCheck: true,
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
     retryStrategy(times) {
-      const delay = Math.min(times * 50, 2000);
-      return delay;
+      if (times > 10) return null; // stop retrying after 10 attempts
+      return Math.min(times * 100, 3000);
     },
     ...(isTLS ? { tls: { rejectUnauthorized: false } } : {}),
     ...options,
