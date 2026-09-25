@@ -5,7 +5,9 @@
       "Bash(docker exec *)",
       "Bash(npx tsc *)",
       "Bash(docker-compose restart *)",
-      "Bash(powershell -Command \"Get-ChildItem -Recurse -Force | Select-Object FullName\")"
+      "Bash(powershell -Command \"Get-ChildItem -Recurse -Force | Select-Object FullName\")",
+      "Bash(npm view *)",
+      "Bash(node -e \"const d=JSON.parse\\(require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\)\\); const v2=d.filter\\(v=>v.startsWith\\('2.'\\)\\); console.log\\('Latest v2:', v2.slice\\(-3\\).join\\(', '\\)\\); console.log\\('Latest v1:', d.filter\\(v=>v.startsWith\\('1.'\\)\\).slice\\(-1\\)[0]\\);\")"
     ]
   }
 }

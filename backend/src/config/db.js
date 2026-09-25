@@ -17,8 +17,8 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
+  // Log but do not exit — transient connection drops are survivable; the pool will reconnect
   logger.error('Unexpected PostgreSQL client error', { error: err.message });
-  process.exit(-1);
 });
 
 const query = async (text, params) => {

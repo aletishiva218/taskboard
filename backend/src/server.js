@@ -1,3 +1,13 @@
+// Catch startup crashes BEFORE any other module loads so the error is always visible in logs
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION — server will exit:', err.stack || err.message);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('UNHANDLED REJECTION — server will exit:', reason instanceof Error ? reason.stack : reason);
+  process.exit(1);
+});
+
 require('dotenv').config();
 const http = require('http');
 const app = require('./app');
