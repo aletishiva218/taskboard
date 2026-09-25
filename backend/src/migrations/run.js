@@ -52,8 +52,11 @@ const runMigrations = async () => {
     process.exit(1);
   } finally {
     client.release();
-    await pool.end();
+    await pool.end().catch(() => {});
   }
 };
 
-runMigrations();
+runMigrations().catch((err) => {
+  console.error('Unexpected migration error:', err.message);
+  process.exit(1);
+});
