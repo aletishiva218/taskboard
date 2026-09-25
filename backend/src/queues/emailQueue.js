@@ -66,6 +66,7 @@ const handlers = {
 
 emailQueue.process(async (job) => {
   const { type, data } = job.data;
+  logger.info('Email job processing', { type, userId: data.userId, jobId: job.id });
 
   try {
     const allowed = await checkPreferences(data.userId, type);
@@ -103,7 +104,7 @@ emailQueue.on('stalled', (job) => {
 
 const addEmailJob = async (type, data, options = {}) => {
   const job = await emailQueue.add({ type, data }, options);
-  logger.debug('Email job queued', { type, userId: data.userId, jobId: job.id });
+  logger.info('Email job queued', { type, userId: data.userId, jobId: job.id });
   return job;
 };
 
