@@ -183,7 +183,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       },
     })),
 
-  setOnlineUsers: (onlineUsers) => set({ onlineUsers }),
+  setOnlineUsers: (users) => set({ onlineUsers: users.filter((u, i, arr) => arr.findIndex((x) => x.id === u.id) === i) }),
   addOnlineUser: (user) =>
     set((s) => {
       if (s.onlineUsers.some((u) => u.id === user.id)) return s;

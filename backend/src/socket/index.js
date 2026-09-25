@@ -71,19 +71,34 @@ const initSocket = (server) => {
         socket.join(`board:${boardId}`);
         socket.currentBoardId = boardId;
 
-        // Notify others on the board about this user joining
-        socket.to(`board:${boardId}`).emit('user:joined', {
-          user: { id: user.id, name: user.name, avatarUrl: user.avatar_url },
-          boardId,
-        });
+        // Fetch all sockets now in the room (includes this one)
+        const roomSockets = await io.in(`board:${boardId}`).fetchSockets();
 
-        // Send current online users in the room
-        const sockets = await io.in(`board:${boardId}`).fetchSockets();
-        const onlineUsers = sockets.map((s) => ({
-          id: s.user.id,
-          name: s.user.name,
-          avatarUrl: s.user.avatar_url,
-        }));
+        // Only tell others this user joined if they have no OTHER socket already in the room.
+        // On a refresh the old socket may still be alive, so we'd be duplicating presence.
+        const alreadyPresent = roomSockets.some(
+          (s) => s.id !== socket.id && s.user?.id === user.id
+        );
+        if (!alreadyPresent) {
+          socket.to(`board:${boardId}`).emit('user:joined', {
+            user: { id: user.id, name: user.name, avatarUrl: user.avatar_url },
+            boardId,
+          });
+        }
+
+        // Build deduplicated online-users list (one entry per user ID)
+        const seen = new Set();
+        const onlineUsers = roomSockets
+          .filter((s) => {
+            if (!s.user?.id || seen.has(s.user.id)) return false;
+            seen.add(s.user.id);
+            return true;
+          })
+          .map((s) => ({
+            id: s.user.id,
+            name: s.user.name,
+            avatarUrl: s.user.avatar_url,
+          }));
 
         socket.emit('board:online_users', { boardId, users: onlineUsers });
 
@@ -95,13 +110,17 @@ const initSocket = (server) => {
     });
 
     // Leave a board room
-    socket.on('board:leave', ({ boardId }) => {
+    socket.on('board:leave', async ({ boardId }) => {
       socket.leave(`board:${boardId}`);
-      socket.to(`board:${boardId}`).emit('user:left', {
-        userId: user.id,
-        boardId,
-      });
       socket.currentBoardId = null;
+      // Only tell others the user left if they have no other socket still in the room
+      const roomSockets = await io.in(`board:${boardId}`).fetchSockets();
+      const stillPresent = roomSockets.some(
+        (s) => s.id !== socket.id && s.user?.id === user.id
+      );
+      if (!stillPresent) {
+        socket.to(`board:${boardId}`).emit('user:left', { userId: user.id, boardId });
+      }
     });
 
     // Cursor position (optional UX enhancement)
@@ -124,10 +143,21 @@ const initSocket = (server) => {
       socket.to(`board:${boardId}`).emit('chat:stop_typing', { userId: user.id });
     });
 
-    socket.on('disconnect', (reason) => {
+    socket.on('disconnect', async (reason) => {
       const boardId = socket.currentBoardId;
       if (boardId) {
-        socket.to(`board:${boardId}`).emit('user:left', { userId: user.id, boardId });
+        // The disconnected socket is already removed from rooms by the time this fires.
+        // Only broadcast user:left if the user has no other socket still in the room.
+        try {
+          const roomSockets = await io.in(`board:${boardId}`).fetchSockets();
+          const stillPresent = roomSockets.some((s) => s.user?.id === user.id);
+          if (!stillPresent) {
+            io.to(`board:${boardId}`).emit('user:left', { userId: user.id, boardId });
+          }
+        } catch {
+          // Fallback: always emit if fetchSockets fails
+          io.to(`board:${boardId}`).emit('user:left', { userId: user.id, boardId });
+        }
       }
       logger.info('Socket disconnected', { socketId: socket.id, userId: user.id, reason });
     });
