@@ -6,22 +6,25 @@ const logger = require('../utils/logger');
 
 class EmailService {
   constructor() {
-    this.configured = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+    // Resend SMTP — works reliably from cloud IPs (Gmail SMTP blocks Render/AWS/GCP).
+    // Sign up free at resend.com, get an API key, set RESEND_API_KEY in Render env vars.
+    this.configured = !!process.env.RESEND_API_KEY;
 
     if (this.configured) {
       this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.resend.com',
+        port: 587,
+        secure: false,
         auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+          user: 'resend',
+          pass: process.env.RESEND_API_KEY,
         },
       });
     }
 
-    // Always derive FROM from SMTP_USER so Gmail accepts it.
-    // Sending from a domain Gmail doesn't own causes auth rejection.
-    this.from = process.env.EMAIL_FROM ||
-      (process.env.SMTP_USER ? `TaskBoard <${process.env.SMTP_USER}>` : 'TaskBoard <no-reply@taskboard.com>');
+    // Use verified sender domain if set, otherwise use Resend's sandbox domain.
+    // onboarding@resend.dev works on free tier without domain verification.
+    this.from = process.env.EMAIL_FROM || 'TaskBoard <onboarding@resend.dev>';
 
     this.clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
     this.templateCache = {};
@@ -30,17 +33,17 @@ class EmailService {
   // Call once at startup to confirm SMTP connectivity and surface config errors early.
   async verify() {
     if (!this.configured) {
-      logger.warn('Email not configured — SMTP_USER/SMTP_PASS not set. All emails will be skipped.');
+      logger.warn('Email not configured — RESEND_API_KEY not set. All emails will be skipped.');
       return false;
     }
     try {
       await this.transporter.verify();
-      logger.info('Email service ready', { user: process.env.SMTP_USER, from: this.from });
+      logger.info('Email service ready (Resend SMTP)', { from: this.from });
       return true;
     } catch (err) {
       logger.error('Email service SMTP connection failed — emails will not be sent', {
         error: err.message,
-        hint: 'For Gmail: enable 2FA and use a 16-char App Password, not your regular password.',
+        hint: 'Check RESEND_API_KEY is correct at resend.com/api-keys',
       });
       return false;
     }
@@ -74,7 +77,7 @@ class EmailService {
 
   async send({ to, subject, html }) {
     if (!this.configured) {
-      logger.warn('Email skipped — SMTP not configured', { to, subject });
+      logger.warn('Email skipped — RESEND_API_KEY not configured', { to, subject });
       return null;
     }
     try {
