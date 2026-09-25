@@ -1,13 +1,12 @@
 const { Router } = require('express');
-const { createBullBoard } = require('bull-board');
-const { BullAdapter } = require('bull-board/bullAdapter');
-const { emailQueue } = require('../queues/emailQueue');
 const { requireAdmin } = require('../middleware/auth');
 
 const router = Router();
 
-const { router: bullBoardRouter } = createBullBoard([new BullAdapter(emailQueue)]);
-
-router.use('/queues', requireAdmin, bullBoardRouter);
+// Bull Board removed — email queue is now an in-process async processor,
+// not a Redis-backed Bull queue (Upstash incompatibility with blocking BRPOP).
+router.get('/queues', requireAdmin, (req, res) => {
+  res.json({ message: 'Queue monitor not available — using in-process email processor.' });
+});
 
 module.exports = router;

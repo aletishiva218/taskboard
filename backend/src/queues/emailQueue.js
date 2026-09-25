@@ -1,26 +1,13 @@
-const Bull = require('bull');
+// Direct async email processor — no Redis queue dependency.
+// Bull + Upstash is incompatible: Upstash closes idle connections that interrupt
+// Bull's blocking BRPOP, causing jobs to stall silently. Since this runs on a
+// single Render instance, a simple in-process queue with exponential retry is
+// sufficient and far more reliable.
 const emailService = require('../services/emailService');
 const { query } = require('../config/db');
 const logger = require('../utils/logger');
-const { createRedisClient } = require('../config/redis');
-
-// Use createClient so Bull inherits our ioredis options (TLS, enableReadyCheck: false).
-// Passing redis: REDIS_URL directly would bypass those settings and fail with Upstash.
-const emailQueue = new Bull('email', {
-  createClient: () => createRedisClient(),
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 2000,
-    },
-    removeOnComplete: 100,
-    removeOnFail: 200,
-  },
-});
 
 const checkPreferences = async (userId, type) => {
-  // Non-registered users have no preferences — always send
   if (!userId) return true;
 
   const result = await query(
@@ -32,21 +19,20 @@ const checkPreferences = async (userId, type) => {
   const { email_notifications, notification_preferences } = result.rows[0];
   if (!email_notifications) return false;
 
-  // Map job type to preference key
   const prefMap = {
     board_invite: 'board_invite',
-    board_invite_new_user: null, // always send — recipient is not registered yet
+    board_invite_new_user: null,
     card_assigned: 'card_assigned',
     due_date_reminder: 'due_date',
     card_moved: 'activity',
     activity_update: 'activity',
     role_changed: 'role_changed',
-    welcome: null, // always send welcome
-    password_reset: null, // security email — always send
+    welcome: null,
+    password_reset: null,
   };
 
   const prefKey = prefMap[type];
-  if (prefKey === null) return true; // no preference check for welcome
+  if (prefKey === null) return true;
   if (!prefKey) return false;
 
   return notification_preferences?.[prefKey] !== false;
@@ -64,48 +50,36 @@ const handlers = {
   password_reset: (data) => emailService.sendPasswordReset(data),
 };
 
-emailQueue.process(async (job) => {
-  const { type, data } = job.data;
-  logger.info('Email job processing', { type, userId: data.userId, jobId: job.id });
-
+const processEmail = async (type, data, attempt = 1) => {
   try {
     const allowed = await checkPreferences(data.userId, type);
     if (!allowed) {
       logger.info('Email skipped (preferences)', { type, userId: data.userId });
-      return { skipped: true };
+      return;
     }
 
     const handler = handlers[type];
     if (!handler) {
-      throw new Error(`Unknown email type: ${type}`);
+      logger.error('Unknown email type', { type });
+      return;
     }
 
     await handler(data);
-    logger.info('Email job completed', { type, userId: data.userId, jobId: job.id });
-    return { sent: true };
+    logger.info('Email job completed', { type, userId: data.userId, attempt });
   } catch (err) {
-    logger.error('Email job failed', { type, userId: data.userId, jobId: job.id, error: err.message });
-    throw err;
+    logger.error('Email job failed', { type, userId: data.userId, error: err.message, attempt });
+    if (attempt < 3) {
+      const delay = attempt * 2000; // 2 s, 4 s
+      setTimeout(() => processEmail(type, data, attempt + 1), delay);
+    } else {
+      logger.error('Email job failed after all retries', { type, userId: data.userId });
+    }
   }
-});
-
-emailQueue.on('failed', (job, err) => {
-  logger.error('Email job failed after all retries', {
-    jobId: job.id,
-    type: job.data.type,
-    error: err.message,
-    attempts: job.attemptsMade,
-  });
-});
-
-emailQueue.on('stalled', (job) => {
-  logger.warn('Email job stalled', { jobId: job.id });
-});
-
-const addEmailJob = async (type, data, options = {}) => {
-  const job = await emailQueue.add({ type, data }, options);
-  logger.info('Email job queued', { type, userId: data.userId, jobId: job.id });
-  return job;
 };
 
-module.exports = { emailQueue, addEmailJob };
+const addEmailJob = (type, data) => {
+  logger.info('Email job queued', { type, userId: data.userId });
+  setImmediate(() => processEmail(type, data));
+};
+
+module.exports = { addEmailJob };
