@@ -53,6 +53,8 @@ server.listen(PORT, () => {
     env: process.env.NODE_ENV,
     port: PORT,
   });
+  // Verify SMTP connectivity at startup so misconfiguration is immediately visible in logs
+  require('./services/emailService').verify().catch(() => {});
 });
 
 module.exports = server;

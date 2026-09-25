@@ -6,20 +6,44 @@ const logger = require('../utils/logger');
 
 class EmailService {
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      // host: process.env.SMTP_HOST,
-      // port: parseInt(process.env.SMTP_PORT || '587'),
-      // secure: process.env.SMTP_PORT === '465',
-      service: 'gmail',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+    this.configured = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
 
-    this.from = process.env.EMAIL_FROM || 'TaskBoard <no-reply@taskboard.com>';
+    if (this.configured) {
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+    }
+
+    // Always derive FROM from SMTP_USER so Gmail accepts it.
+    // Sending from a domain Gmail doesn't own causes auth rejection.
+    this.from = process.env.EMAIL_FROM ||
+      (process.env.SMTP_USER ? `TaskBoard <${process.env.SMTP_USER}>` : 'TaskBoard <no-reply@taskboard.com>');
+
     this.clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
     this.templateCache = {};
+  }
+
+  // Call once at startup to confirm SMTP connectivity and surface config errors early.
+  async verify() {
+    if (!this.configured) {
+      logger.warn('Email not configured — SMTP_USER/SMTP_PASS not set. All emails will be skipped.');
+      return false;
+    }
+    try {
+      await this.transporter.verify();
+      logger.info('Email service ready', { user: process.env.SMTP_USER, from: this.from });
+      return true;
+    } catch (err) {
+      logger.error('Email service SMTP connection failed — emails will not be sent', {
+        error: err.message,
+        hint: 'For Gmail: enable 2FA and use a 16-char App Password, not your regular password.',
+      });
+      return false;
+    }
   }
 
   getTemplate(name) {
@@ -39,11 +63,20 @@ class EmailService {
   }
 
   getUnsubscribeUrl(userId) {
-    const token = generateUnsubscribeToken(userId);
-    return `${this.clientUrl}/api/auth/unsubscribe?token=${token}`;
+    try {
+      const token = generateUnsubscribeToken(userId);
+      return `${this.clientUrl}/api/auth/unsubscribe?token=${token}`;
+    } catch {
+      // UNSUBSCRIBE_SECRET not set — return settings page as safe fallback
+      return `${this.clientUrl}/settings`;
+    }
   }
 
   async send({ to, subject, html }) {
+    if (!this.configured) {
+      logger.warn('Email skipped — SMTP not configured', { to, subject });
+      return null;
+    }
     try {
       const info = await this.transporter.sendMail({
         from: this.from,
