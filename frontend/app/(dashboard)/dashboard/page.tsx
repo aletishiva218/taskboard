@@ -6,7 +6,7 @@ import CreateBoardModal from '@/components/board/CreateBoardModal';
 import type { Board } from '@/types';
 
 export default function DashboardPage() {
-  const { boards, fetchBoards, toggleFavourite } = useBoard();
+  const { boards, fetchBoards, toggleFavourite, deleteBoard } = useBoard();
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,7 +81,7 @@ export default function DashboardPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {favourites.map((board: Board) => (
-                  <BoardCard key={board.id} board={board} onToggleFavourite={toggleFavourite} />
+                  <BoardCard key={board.id} board={board} onToggleFavourite={toggleFavourite} onDelete={deleteBoard} />
                 ))}
               </div>
             </div>
@@ -94,7 +94,7 @@ export default function DashboardPage() {
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {allBoards.map((board: Board) => (
-                <BoardCard key={board.id} board={board} onToggleFavourite={toggleFavourite} />
+                <BoardCard key={board.id} board={board} onToggleFavourite={toggleFavourite} onDelete={deleteBoard} />
               ))}
               <button
                 onClick={() => setShowCreate(true)}
