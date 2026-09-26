@@ -3,7 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  connectionTimeoutMillis: 15000, // fail fast if DB unreachable
+});
 
 const runMigrations = async () => {
   const client = await pool.connect();
