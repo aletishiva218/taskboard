@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const fs = require('fs');
 const path = require('path');
 const { generateUnsubscribeToken } = require('../utils/jwt');
@@ -6,42 +6,35 @@ const logger = require('../utils/logger');
 
 class EmailService {
   constructor() {
-    // Resend SMTP — works reliably from cloud IPs (Gmail SMTP blocks Render/AWS/GCP).
-    // Sign up free at resend.com, get an API key, set RESEND_API_KEY in Render env vars.
+    // Resend HTTP API — uses port 443, never blocked by cloud hosting providers.
+    // SMTP (port 587) is blocked on Render/AWS/GCP to prevent spam abuse.
     this.configured = !!process.env.RESEND_API_KEY;
 
     if (this.configured) {
-      this.transporter = nodemailer.createTransport({
-        host: 'smtp.resend.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: 'resend',
-          pass: process.env.RESEND_API_KEY,
-        },
-      });
+      this.resend = new Resend(process.env.RESEND_API_KEY);
     }
 
-    // Use verified sender domain if set, otherwise use Resend's sandbox domain.
-    // onboarding@resend.dev works on free tier without domain verification.
+    // onboarding@resend.dev is Resend's verified sandbox sender — works on free
+    // tier without domain verification. Set EMAIL_FROM to override once you have
+    // a verified custom domain in Resend.
     this.from = process.env.EMAIL_FROM || 'TaskBoard <onboarding@resend.dev>';
 
     this.clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
     this.templateCache = {};
   }
 
-  // Call once at startup to confirm SMTP connectivity and surface config errors early.
   async verify() {
     if (!this.configured) {
       logger.warn('Email not configured — RESEND_API_KEY not set. All emails will be skipped.');
       return false;
     }
     try {
-      await this.transporter.verify();
-      logger.info('Email service ready (Resend SMTP)', { from: this.from });
+      // Validate the API key by fetching the domains list (lightweight check)
+      await this.resend.domains.list();
+      logger.info('Email service ready (Resend HTTP API)', { from: this.from });
       return true;
     } catch (err) {
-      logger.error('Email service SMTP connection failed — emails will not be sent', {
+      logger.error('Email service failed to connect — emails will not be sent', {
         error: err.message,
         hint: 'Check RESEND_API_KEY is correct at resend.com/api-keys',
       });
@@ -81,14 +74,15 @@ class EmailService {
       return null;
     }
     try {
-      const info = await this.transporter.sendMail({
+      const { data, error } = await this.resend.emails.send({
         from: this.from,
         to,
         subject,
         html,
       });
-      logger.info('Email sent', { to, subject, messageId: info.messageId });
-      return info;
+      if (error) throw new Error(error.message);
+      logger.info('Email sent', { to, subject, messageId: data?.id });
+      return data;
     } catch (err) {
       logger.error('Email send failed', { to, subject, error: err.message });
       throw err;
