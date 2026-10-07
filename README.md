@@ -2,6 +2,8 @@
 
 A production-grade real-time collaborative task board built with Next.js 14, Socket.io, PostgreSQL, and Redis.
 
+> Created by **Nikhil Patlekar**
+
 ## Features
 
 - **Real-time collaboration** — drag cards, rename lists, and invite teammates. All changes sync instantly via Socket.io.

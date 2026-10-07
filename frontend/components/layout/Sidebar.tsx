@@ -87,6 +87,10 @@ export default function Sidebar({ isOpen, onClose }: Props) {
           );
         })}
       </nav>
+
+      <div className="px-4 py-3 border-t border-gray-100">
+        <p className="text-xs text-gray-400 text-center">Created by Nikhil Patlekar</p>
+      </div>
     </aside>
   );
 }
