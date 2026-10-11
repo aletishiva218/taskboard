@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { trackEvent } from '@/lib/analytics';
 
 interface InvitePayload {
   boardId: string;
@@ -44,8 +45,10 @@ function JoinContent() {
       const { data } = await api.post('/boards/join', { token });
       setBoardId(data.data.boardId);
       setAccepted(true);
+      trackEvent('board_invite_accepted', { role: payload?.role ?? '' });
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      trackEvent('board_invite_error');
       setError(msg || 'Failed to accept invitation. Please try again.');
     } finally {
       setAccepting(false);

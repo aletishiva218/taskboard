@@ -3,6 +3,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -36,9 +37,11 @@ function ResetPasswordForm() {
     setLoading(true);
     try {
       await api.post('/auth/reset-password', { token, password });
+      trackEvent('reset_password_success');
       router.push('/login?reset=success');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      trackEvent('reset_password_error');
       setError(msg || 'Failed to reset password. The link may have expired.');
     } finally {
       setLoading(false);

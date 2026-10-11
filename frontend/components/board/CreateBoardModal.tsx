@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useBoard } from '@/hooks/useBoard';
+import { trackEvent } from '@/lib/analytics';
 
 interface Props {
   onClose: () => void;
@@ -19,6 +20,7 @@ export default function CreateBoardModal({ onClose }: Props) {
     setError('');
     try {
       await createBoard(name.trim());
+      trackEvent('board_created');
       onClose();
     } catch {
       setError('Failed to create board. Please try again.');

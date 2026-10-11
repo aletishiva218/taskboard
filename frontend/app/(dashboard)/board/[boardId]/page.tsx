@@ -13,6 +13,7 @@ import CardDetailModal from '@/components/cards/CardDetailModal';
 import ShareBoardModal from '@/components/board/ShareBoardModal';
 import BoardChat from '@/components/board/BoardChat';
 import { useBoardStore } from '@/store/boardStore';
+import { trackEvent } from '@/lib/analytics';
 
 export default function BoardPage() {
   const { boardId } = useParams<{ boardId: string }>();
@@ -29,11 +30,19 @@ export default function BoardPage() {
   const [exporting, setExporting] = useState(false);
   const [printing, setPrinting] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
+  const boardViewedFired = useRef(false);
 
   useSocket(boardId);
 
   useEffect(() => {
+    boardViewedFired.current = false;
     Promise.all([fetchBoard(boardId), fetchActivity(boardId)])
+      .then(() => {
+        if (!boardViewedFired.current) {
+          boardViewedFired.current = true;
+          trackEvent('board_viewed', { board_id: boardId });
+        }
+      })
       .finally(() => setLoading(false));
   }, [boardId]);
 
@@ -53,6 +62,7 @@ export default function BoardPage() {
     setExporting(true);
     try {
       await exportBoard(boardId, format);
+      trackEvent('board_exported', { board_id: boardId, format });
     } finally {
       setExporting(false);
     }
@@ -62,6 +72,7 @@ export default function BoardPage() {
     setPrinting(true);
     try {
       await printBoard(boardId);
+      trackEvent('board_pdf_generated', { board_id: boardId });
     } finally {
       setPrinting(false);
     }
@@ -96,7 +107,7 @@ export default function BoardPage() {
           <div className="flex items-center gap-2 min-w-0">
             <h1 className="font-bold text-base sm:text-lg text-gray-900 truncate max-w-[140px] sm:max-w-xs">{currentBoard.name}</h1>
             <button
-              onClick={() => toggleFavourite(boardId, isFavourite)}
+              onClick={() => { toggleFavourite(boardId, isFavourite); trackEvent('board_favourite_toggled', { board_id: boardId, is_favourite: !isFavourite }); }}
               title={isFavourite ? 'Remove from favourites' : 'Add to favourites'}
               className="text-gray-400 hover:text-yellow-400 transition shrink-0"
             >
@@ -115,7 +126,7 @@ export default function BoardPage() {
 
             {/* Share — icon-only on mobile */}
             <button
-              onClick={() => setShowShare(true)}
+              onClick={() => { setShowShare(true); trackEvent('board_share_opened', { board_id: boardId }); }}
               className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition"
               title="Share"
             >
@@ -177,7 +188,7 @@ export default function BoardPage() {
 
             {/* Activity toggle */}
             <button
-              onClick={() => setShowActivity((v) => !v)}
+              onClick={() => { setShowActivity((v) => { trackEvent('board_activity_toggled', { board_id: boardId, opened: !v }); return !v; }); }}
               className={`flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-lg text-sm font-medium transition ${showActivity ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'}`}
               title="Activity"
             >
@@ -189,7 +200,7 @@ export default function BoardPage() {
 
             {/* Chat toggle */}
             <button
-              onClick={() => { setShowChat((v) => !v); clearChatUnread(); }}
+              onClick={() => { setShowChat((v) => { trackEvent('board_chat_toggled', { board_id: boardId, opened: !v }); return !v; }); clearChatUnread(); }}
               className={`relative flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-lg text-sm font-medium transition ${showChat ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'}`}
               title="Chat"
             >

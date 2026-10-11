@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useBoard } from "@/hooks/useBoard";
 import { useBoardStore } from "@/store/boardStore";
+import { trackEvent } from "@/lib/analytics";
 
 interface Props {
   boardId: string;
@@ -22,6 +23,7 @@ export default function CreateListForm({ boardId }: Props) {
     setSaving(true);
     try {
       await createList(boardId, name.trim());
+      trackEvent('list_created', { board_id: boardId });
       setName("");
       setOpen(false);
     } finally {

@@ -3,6 +3,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { trackEvent } from '@/lib/analytics';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -21,10 +22,12 @@ function RegisterForm() {
     try {
       await register(form.name, form.email, form.password);
       document.cookie = 'tb-auth-check=1; path=/; max-age=604800; samesite=lax';
+      trackEvent('sign_up', { method: 'email' });
       const redirect = searchParams.get('redirect');
       router.push(redirect && redirect.startsWith('/') ? redirect : '/dashboard');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      trackEvent('sign_up_error', { method: 'email' });
       setError(msg || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
@@ -100,6 +103,7 @@ function RegisterForm() {
 
           <a
             href={`${API_URL}/api/auth/google`}
+            onClick={() => trackEvent('sign_up', { method: 'google' })}
             className="flex items-center justify-center gap-3 w-full py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition text-sm"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5">

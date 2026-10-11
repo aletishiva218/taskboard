@@ -3,6 +3,7 @@ import { useState, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { getInitials } from '@/lib/utils';
 import api from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
 
 export default function SettingsPage() {
   const { user, setUser } = useAuthStore();
@@ -40,6 +41,7 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setUser({ ...user!, avatarUrl: data.data.user.avatar_url });
+      trackEvent('avatar_updated');
       setAvatarMsg('Photo updated.');
     } catch {
       setAvatarMsg('Failed to upload photo.');
@@ -55,6 +57,7 @@ export default function SettingsPage() {
     try {
       await api.delete('/users/avatar');
       setUser({ ...user!, avatarUrl: null });
+      trackEvent('avatar_removed');
       setAvatarMsg('Photo removed.');
     } catch {
       setAvatarMsg('Failed to remove photo.');
@@ -69,6 +72,7 @@ export default function SettingsPage() {
     try {
       const { data } = await api.patch('/users/profile', { name });
       setUser({ ...user!, name: data.data.user.name });
+      trackEvent('profile_saved');
       setMsg('Profile updated.');
     } catch {
       setMsg('Failed to update profile.');
@@ -82,6 +86,7 @@ export default function SettingsPage() {
     setPwMsg('');
     try {
       await api.patch('/users/change-password', { currentPassword: currentPw, newPassword: newPw });
+      trackEvent('password_changed');
       setPwMsg('Password updated. Please log in again.');
       setCurrentPw('');
       setNewPw('');
@@ -100,6 +105,7 @@ export default function SettingsPage() {
         emailNotifications,
         notificationPreferences: prefs,
       });
+      trackEvent('notification_preferences_saved', { email_notifications_enabled: emailNotifications });
     } catch {}
     setPrefSaving(false);
   };

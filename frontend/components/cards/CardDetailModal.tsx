@@ -6,6 +6,7 @@ import { getLabelStyles, formatRelativeTime } from '@/lib/utils';
 import { getSocket } from '@/lib/socket';
 import type { Card, Comment, Attachment, Activity } from '@/types';
 import { LABEL_COLORS } from '@/types';
+import { trackEvent } from '@/lib/analytics';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -82,6 +83,7 @@ export default function CardDetailModal({ cardId, boardId, onClose }: Props) {
       setComments(commentsRes.data.data.comments);
       setAttachments(attachmentsRes.data.data.attachments);
       setActivity(activityRes.data.data.activity);
+      trackEvent('card_detail_viewed', { card_id: cardId, board_id: boardId });
     }).finally(() => setLoading(false));
   }, [cardId, boardId]);
 
@@ -120,6 +122,7 @@ export default function CardDetailModal({ cardId, boardId, onClose }: Props) {
         description: description || null,
         due_date: dueDate || null,
       } as Partial<Card>);
+      trackEvent('card_saved', { card_id: cardId, board_id: boardId });
       onClose();
     } catch {
       setSaveError('Failed to save. Please try again.');
@@ -131,6 +134,7 @@ export default function CardDetailModal({ cardId, boardId, onClose }: Props) {
   const handleDelete = async () => {
     if (!confirm('Delete this card?')) return;
     await deleteCard(boardId, cardId);
+    trackEvent('card_deleted', { card_id: cardId, board_id: boardId });
     onClose();
   };
 
@@ -142,9 +146,11 @@ export default function CardDetailModal({ cardId, boardId, onClose }: Props) {
       if (existing) {
         await api.delete(`/boards/${boardId}/cards/${cardId}/labels/${existing.id}`);
         setCard(prev => prev ? { ...prev, labels: prev.labels.filter(l => l.id !== existing.id) } : null);
+        trackEvent('card_label_toggled', { card_id: cardId, color, action: 'remove' });
       } else {
         const { data } = await api.post(`/boards/${boardId}/cards/${cardId}/labels`, { color });
         setCard(data.data.card);
+        trackEvent('card_label_toggled', { card_id: cardId, color, action: 'add' });
       }
     } finally {
       setTogglingLabel(null);
@@ -158,9 +164,11 @@ export default function CardDetailModal({ cardId, boardId, onClose }: Props) {
       if (isAssigned) {
         await api.delete(`/boards/${boardId}/cards/${cardId}/assignees/${userId}`);
         setCard((prev) => prev ? { ...prev, assignees: prev.assignees.filter((a) => a.id !== userId) } : null);
+        trackEvent('card_assignee_toggled', { card_id: cardId, action: 'remove' });
       } else {
         const { data } = await api.post(`/boards/${boardId}/cards/${cardId}/assignees`, { userId });
         setCard(data.data.card);
+        trackEvent('card_assignee_toggled', { card_id: cardId, action: 'add' });
       }
     } finally {
       setTogglingAssignee(null);
@@ -174,6 +182,7 @@ export default function CardDetailModal({ cardId, boardId, onClose }: Props) {
     try {
       const { data } = await api.post(`/boards/${boardId}/cards/${cardId}/comments`, { text: newComment.trim() });
       setComments(prev => prev.some(c => c.id === data.data.comment.id) ? prev : [...prev, data.data.comment]);
+      trackEvent('card_comment_added', { card_id: cardId, board_id: boardId });
       setNewComment('');
     } finally {
       setAddingComment(false);
@@ -195,6 +204,7 @@ export default function CardDetailModal({ cardId, boardId, onClose }: Props) {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setAttachments(prev => prev.some(a => a.id === data.data.attachment.id) ? prev : [data.data.attachment, ...prev]);
+      trackEvent('card_attachment_uploaded', { card_id: cardId, board_id: boardId });
     } finally {
       setUploadingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

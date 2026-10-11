@@ -2,6 +2,7 @@
 import { useCallback } from 'react';
 import type { DropResult } from '@hello-pangea/dnd';
 import { useBoard } from './useBoard';
+import { trackEvent } from '@/lib/analytics';
 
 export const useDragAndDrop = (boardId: string) => {
   const { lists, cards, reorderLists, moveCard, reorderCards } = useBoard();
@@ -18,6 +19,7 @@ export const useDragAndDrop = (boardId: string) => {
         const [removed] = orderedIds.splice(source.index, 1);
         orderedIds.splice(destination.index, 0, removed);
         await reorderLists(boardId, orderedIds);
+        trackEvent('list_reordered', { board_id: boardId });
         return;
       }
 
@@ -33,6 +35,7 @@ export const useDragAndDrop = (boardId: string) => {
           sourceCards.splice(destination.index, 0, movedCard);
           const orderedIds = sourceCards.map((c) => c.id);
           await reorderCards(boardId, sourceListId, orderedIds);
+          trackEvent('card_reordered', { board_id: boardId, list_id: sourceListId });
         } else {
           destCards.splice(destination.index, 0, movedCard);
 
@@ -44,6 +47,9 @@ export const useDragAndDrop = (boardId: string) => {
           const position = (prevPos + nextPos) / 2;
 
           await moveCard(boardId, movedCard.id, destListId, position, sourceListId);
+          const destListName = lists.find((l) => l.id === destListId)?.name ?? '';
+          const to_list_type = /done|complete/i.test(destListName) ? 'done' : 'other';
+          trackEvent('card_moved_between_lists', { board_id: boardId, to_list_type });
         }
       }
     },

@@ -5,6 +5,7 @@ import { useBoardStore } from '@/store/boardStore';
 import { useBoard } from '@/hooks/useBoard';
 import CardItem from '@/components/cards/CardItem';
 import type { List } from '@/types';
+import { trackEvent } from '@/lib/analytics';
 
 interface Props {
   list: List;
@@ -30,6 +31,7 @@ export default function ListColumn({ list, index, boardId, onCardClick }: Props)
     setSaving(true);
     try {
       await createCard(boardId, list.id, newCardName.trim());
+      trackEvent('card_created', { board_id: boardId, list_id: list.id });
       setNewCardName('');
       setAddingCard(false);
     } finally {
@@ -45,6 +47,7 @@ export default function ListColumn({ list, index, boardId, onCardClick }: Props)
     }
     try {
       await updateList(boardId, list.id, listName.trim());
+      trackEvent('list_renamed', { board_id: boardId });
     } catch {
       setListName(list.name);
     }
@@ -54,6 +57,7 @@ export default function ListColumn({ list, index, boardId, onCardClick }: Props)
   const handleDeleteList = async () => {
     if (!confirm(`Delete list "${list.name}" and all its cards?`)) return;
     await deleteList(boardId, list.id);
+    trackEvent('list_deleted', { board_id: boardId });
   };
 
   return (

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -15,6 +16,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       await api.post('/auth/forgot-password', { email });
+      trackEvent('forgot_password_request');
       setSubmitted(true);
     } catch {
       setError('Something went wrong. Please try again.');

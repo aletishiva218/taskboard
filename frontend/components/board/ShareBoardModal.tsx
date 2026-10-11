@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 import type { BoardMember } from '@/types';
+import { trackEvent } from '@/lib/analytics';
 
 interface Props {
   boardId: string;
@@ -98,6 +99,7 @@ export default function ShareBoardModal({ boardId, boardName, currentRole, onClo
       setInviteError(errors.join(' · '));
     } else {
       const count = validEmails.length;
+      trackEvent('board_invite_sent', { recipient_count: count, role });
       setInviteSuccess(`Invitation${count > 1 ? 's' : ''} sent to ${count} ${count > 1 ? 'people' : 'person'}.`);
     }
   };
@@ -107,6 +109,7 @@ export default function ShareBoardModal({ boardId, boardName, currentRole, onClo
     try {
       await api.delete(`/boards/${boardId}/members/${userId}`);
       setMembers((prev) => prev.filter((m) => m.user_id !== userId));
+      trackEvent('board_member_removed', { board_id: boardId });
     } catch {}
     setRemovingId(null);
   };
@@ -115,6 +118,7 @@ export default function ShareBoardModal({ boardId, boardName, currentRole, onClo
     try {
       await api.patch(`/boards/${boardId}/members/${userId}/role`, { role: newRole });
       setMembers((prev) => prev.map((m) => (m.user_id === userId ? { ...m, role: newRole } : m)));
+      trackEvent('board_member_role_changed', { board_id: boardId, new_role: newRole });
     } catch {}
   };
 
