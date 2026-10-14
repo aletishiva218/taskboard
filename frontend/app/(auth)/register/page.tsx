@@ -123,7 +123,6 @@ function RegisterForm() {
           </p>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">Created by Nikhil Patlekar</p>
       </div>
     </div>
   );
